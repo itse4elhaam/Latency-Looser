@@ -1,14 +1,10 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-
-const Redis = require("redis")
-
+const Redis = require("redis");
+const { resolve } = require("path");
 const app = express();
-
 app.use(cors());
-
-
 const redisClient = Redis.createClient();
 
 const DEFAULT_EXPIRATION = 3600;
@@ -17,21 +13,16 @@ app.get("/photos", async (req, res) => {
     const { albumId } = req.query;
 
     try {
-        const photos = await redisClient.get(`photos?albumId=${albumId}`)
+        const photos = await getOrSetCache(`photos?albumId=${albumId}`, async () => {
+            const { data } = await axios.get(
+                "https://jsonplaceholder.typicode.com/photos",
+                { params: { albumId } }
+            );
+            return data;
+        })
 
-        if (photos) {
-            console.log("Cache hit");
-            return res.json(JSON.parse(photos))
-        }
+        return res.json(photos);
 
-        console.log("Cache miss");
-
-        const { data } = await axios.get(
-            "https://jsonplaceholder.typicode.com/photos",
-            { params: { albumId } }
-        );
-        redisClient.setEx(`photos?albumId=${albumId}`, DEFAULT_EXPIRATION, JSON.stringify(data))
-        res.json(data);
     } catch (error) {
         console.error("Error fetching photos:", error.message);
         res.status(500).json({ error: "Internal Server Error" });
@@ -50,6 +41,24 @@ app.get("/photos/:id", async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 });
+
+
+async function getOrSetCache(key, cb) {
+    return new Promise(async (resolve, reject) => {
+        const photos = await redisClient.get(key)
+
+        if (photos) {
+            console.log("Cache hit")
+            resolve(JSON.parse(photos));
+        }
+        
+        const freshData = await cb();
+        console.log("Cache miss")
+        redisClient.setEx(key, DEFAULT_EXPIRATION, JSON.stringify(freshData))
+        resolve(freshData);
+    })
+}
+
 
 const PORT = process.env.PORT || 3000;
 
