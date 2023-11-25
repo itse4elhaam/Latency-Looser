@@ -2,9 +2,10 @@ const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
 const Redis = require("redis");
-const { resolve } = require("path");
+
 const app = express();
 app.use(cors());
+
 const redisClient = Redis.createClient();
 
 const DEFAULT_EXPIRATION = 3600;
