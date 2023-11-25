@@ -20,9 +20,9 @@ app.get("/photos", async (req, res) => {
             );
             return data;
         })
-
+        
         return res.json(photos);
-
+        
     } catch (error) {
         console.error("Error fetching photos:", error.message);
         res.status(500).json({ error: "Internal Server Error" });
@@ -31,11 +31,14 @@ app.get("/photos", async (req, res) => {
 
 app.get("/photos/:id", async (req, res) => {
     try {
-        const { data } = await axios.get(
-            `https://jsonplaceholder.typicode.com/photos/${req.params.id}`
-        );
+        const photo = await getOrSetCache(`photos:${req.params.id}`, async () => {
+            const { data } = await axios.get(
+                `https://jsonplaceholder.typicode.com/photos/${req.params.id}`
+            );
+            return data;
+        })
 
-        res.json(data);
+        res.json(photo);
     } catch (error) {
         console.error(`Error fetching photo with id ${req.params.id}:`, error.message);
         res.status(500).json({ error: "Internal Server Error" });
